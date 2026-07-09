@@ -1,0 +1,22 @@
+# Maven
+target/
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+
+# Quarkus
+.quarkus/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+
+# Logs
+*.log
