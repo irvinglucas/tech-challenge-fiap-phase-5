@@ -1,0 +1,436 @@
+{
+  "info": {
+    "name": "Prontuario Eletronico SUS - Hackathon FIAP",
+    "description": "Colecao dos 3 microservicos (records-command-service, records-query-service, audit-service) do MVP de prontuario eletronico unificado (issue #17). Execute as pastas na ordem (0 a 3) usando o ambiente 'Prontuario SUS - Local'. As requisicoes de token e de registro de paciente preenchem automaticamente as variaveis de ambiente usadas pelas demais (via Postman Runner ou 'Send' manual, em sequencia).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "0. Autenticacao (dev tokens)",
+      "description": "Emite tokens JWT de demonstracao via records-command-service (/dev/tokens), assinados com a chave privada de demo. Apenas para ambiente local/hackathon - nao existe em producao.",
+      "item": [
+        {
+          "name": "Emitir token MEDICO",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"professionalId\": \"{{medicoId}}\",\n  \"roles\": [\"MEDICO\"]\n}"
+            },
+            "url": { "raw": "{{commandBaseUrl}}/dev/tokens", "host": ["{{commandBaseUrl}}"], "path": ["dev", "tokens"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('medicoToken', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Emitir token ENFERMEIRO",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"professionalId\": \"{{enfermeiroId}}\",\n  \"roles\": [\"ENFERMEIRO\"]\n}"
+            },
+            "url": { "raw": "{{commandBaseUrl}}/dev/tokens", "host": ["{{commandBaseUrl}}"], "path": ["dev", "tokens"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('enfermeiroToken', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Emitir token GESTOR",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"professionalId\": \"{{gestorId}}\",\n  \"roles\": [\"GESTOR\"]\n}"
+            },
+            "url": { "raw": "{{commandBaseUrl}}/dev/tokens", "host": ["{{commandBaseUrl}}"], "path": ["dev", "tokens"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('gestorToken', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Emitir token AUDITOR",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"professionalId\": \"{{auditorId}}\",\n  \"roles\": [\"AUDITOR\"]\n}"
+            },
+            "url": { "raw": "{{commandBaseUrl}}/dev/tokens", "host": ["{{commandBaseUrl}}"], "path": ["dev", "tokens"] }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', () => pm.response.to.have.status(200));",
+                  "pm.environment.set('auditorToken', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Comandos (records-command-service)",
+      "description": "Endpoints de escrita do prontuario. Todos exigem JWT e a role adequada (ver docs/event-storming.md).",
+      "item": [
+        {
+          "name": "Registrar paciente (MEDICO)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{medicoToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Maria da Silva\",\n  \"cpf\": \"{{patientCpf}}\",\n  \"unitId\": \"{{unitId}}\"\n}"
+            },
+            "url": { "raw": "{{commandBaseUrl}}/patients", "host": ["{{commandBaseUrl}}"], "path": ["patients"] },
+            "description": "O pre-request script gera um CPF aleatorio a cada execucao (o patientId e derivado do CPF), evitando 409 (paciente ja registrado) ao repetir a colecao."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "pm.environment.set('patientCpf', String(Math.floor(10000000000 + Math.random() * 89999999999)));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 201', () => pm.response.to.have.status(201));",
+                  "pm.environment.set('patientId', pm.response.json().patientId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Registrar evolucao clinica sem acesso (ENFERMEIRO) -> 403 esperado",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{enfermeiroToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitId\": \"{{unitId}}\",\n  \"notes\": \"tentativa sem acesso concedido\"\n}"
+            },
+            "url": {
+              "raw": "{{commandBaseUrl}}/patients/{{patientId}}/consultations",
+              "host": ["{{commandBaseUrl}}"], "path": ["patients", "{{patientId}}", "consultations"]
+            },
+            "description": "Demonstra o RBAC do lado de escrita: mesmo o profissional que registrou o paciente precisa de um AccessGranted explicito para poder registrar evolucao clinica."
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 403 (acesso negado)', () => pm.response.to.have.status(403));"] } }
+          ]
+        },
+        {
+          "name": "Conceder acesso ao MEDICO (GESTOR)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{gestorToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"professionalId\": \"{{medicoId}}\",\n  \"unitId\": \"{{unitId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{commandBaseUrl}}/patients/{{patientId}}/access-grants",
+              "host": ["{{commandBaseUrl}}"], "path": ["patients", "{{patientId}}", "access-grants"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }
+          ]
+        },
+        {
+          "name": "Registrar evolucao clinica (MEDICO, autorizado)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{medicoToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitId\": \"{{unitId}}\",\n  \"notes\": \"Paciente estavel, pressao 120x80. Retorno em 30 dias.\"\n}"
+            },
+            "url": {
+              "raw": "{{commandBaseUrl}}/patients/{{patientId}}/consultations",
+              "host": ["{{commandBaseUrl}}"], "path": ["patients", "{{patientId}}", "consultations"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }
+          ]
+        },
+        {
+          "name": "Adicionar diagnostico (MEDICO)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{medicoToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitId\": \"{{unitId}}\",\n  \"description\": \"Hipertensao arterial\",\n  \"cid10\": \"I10\"\n}"
+            },
+            "url": {
+              "raw": "{{commandBaseUrl}}/patients/{{patientId}}/diagnoses",
+              "host": ["{{commandBaseUrl}}"], "path": ["patients", "{{patientId}}", "diagnoses"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }
+          ]
+        },
+        {
+          "name": "Emitir prescricao (MEDICO)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{medicoToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitId\": \"{{unitId}}\",\n  \"medication\": \"Losartana\",\n  \"dosage\": \"50mg, 1x ao dia\"\n}"
+            },
+            "url": {
+              "raw": "{{commandBaseUrl}}/patients/{{patientId}}/prescriptions",
+              "host": ["{{commandBaseUrl}}"], "path": ["patients", "{{patientId}}", "prescriptions"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }
+          ]
+        },
+        {
+          "name": "Registrar alergia (MEDICO ou ENFERMEIRO)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{medicoToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitId\": \"{{unitId}}\",\n  \"substance\": \"Dipirona\",\n  \"severity\": \"MODERADA\"\n}"
+            },
+            "url": {
+              "raw": "{{commandBaseUrl}}/patients/{{patientId}}/allergies",
+              "host": ["{{commandBaseUrl}}"], "path": ["patients", "{{patientId}}", "allergies"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }
+          ]
+        },
+        {
+          "name": "Anexar resultado de exame (MEDICO ou ENFERMEIRO)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{medicoToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"unitId\": \"{{unitId}}\",\n  \"examType\": \"Hemograma completo\",\n  \"resultSummary\": \"Dentro dos valores de referencia\"\n}"
+            },
+            "url": {
+              "raw": "{{commandBaseUrl}}/patients/{{patientId}}/exam-results",
+              "host": ["{{commandBaseUrl}}"], "path": ["patients", "{{patientId}}", "exam-results"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Consultas (records-query-service)",
+      "description": "Endpoints de leitura (CQRS): projecoes assincronas atualizadas via Kafka a partir dos eventos publicados pelo records-command-service. Pode haver um pequeno delay entre um comando e a projecao ficar disponivel.",
+      "item": [
+        {
+          "name": "Consultar prontuario consolidado sem acesso (ENFERMEIRO) -> 403 esperado",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{enfermeiroToken}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{queryBaseUrl}}/patients/{{patientId}}/record?unitId={{unitId}}",
+              "host": ["{{queryBaseUrl}}"], "path": ["patients", "{{patientId}}", "record"],
+              "query": [{ "key": "unitId", "value": "{{unitId}}" }]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 403 (acesso negado)', () => pm.response.to.have.status(403));"] } }
+          ]
+        },
+        {
+          "name": "Consultar prontuario consolidado (MEDICO, autorizado)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{medicoToken}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{queryBaseUrl}}/patients/{{patientId}}/record?unitId={{unitId}}",
+              "host": ["{{queryBaseUrl}}"], "path": ["patients", "{{patientId}}", "record"],
+              "query": [{ "key": "unitId", "value": "{{unitId}}" }]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }
+          ]
+        },
+        {
+          "name": "Consultar resumo do paciente (MEDICO)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{medicoToken}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{queryBaseUrl}}/patients/{{patientId}}/summary?unitId={{unitId}}",
+              "host": ["{{queryBaseUrl}}"], "path": ["patients", "{{patientId}}", "summary"],
+              "query": [{ "key": "unitId", "value": "{{unitId}}" }]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }
+          ]
+        },
+        {
+          "name": "Listar pacientes por unidade",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{gestorToken}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{queryBaseUrl}}/units/{{unitId}}/patients",
+              "host": ["{{queryBaseUrl}}"], "path": ["units", "{{unitId}}", "patients"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Auditoria (audit-service)",
+      "description": "Trilha de auditoria append-only e alertas de acesso anomalo, alimentados de forma assincrona pelos mesmos eventos consumidos do Kafka. Restrito a role AUDITOR.",
+      "item": [
+        {
+          "name": "Trilha de auditoria completa do paciente",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auditorToken}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{auditBaseUrl}}/patients/{{patientId}}/audit-log",
+              "host": ["{{auditBaseUrl}}"], "path": ["patients", "{{patientId}}", "audit-log"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }
+          ]
+        },
+        {
+          "name": "Quem acessou o prontuario do paciente",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auditorToken}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{auditBaseUrl}}/patients/{{patientId}}/access-log",
+              "host": ["{{auditBaseUrl}}"], "path": ["patients", "{{patientId}}", "access-log"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }
+          ]
+        },
+        {
+          "name": "Listar alertas de acesso anomalo",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{auditorToken}}" }] },
+            "method": "GET",
+            "url": {
+              "raw": "{{auditBaseUrl}}/alerts/suspicious-access",
+              "host": ["{{auditBaseUrl}}"], "path": ["alerts", "suspicious-access"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 200', () => pm.response.to.have.status(200));"] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Observabilidade",
+      "description": "Health checks e metricas Prometheus dos 3 servicos (issue #12).",
+      "item": [
+        {
+          "name": "Health - records-command-service",
+          "request": { "method": "GET", "url": { "raw": "{{commandBaseUrl}}/q/health", "host": ["{{commandBaseUrl}}"], "path": ["q", "health"] } }
+        },
+        {
+          "name": "Health - records-query-service",
+          "request": { "method": "GET", "url": { "raw": "{{queryBaseUrl}}/q/health", "host": ["{{queryBaseUrl}}"], "path": ["q", "health"] } }
+        },
+        {
+          "name": "Health - audit-service",
+          "request": { "method": "GET", "url": { "raw": "{{auditBaseUrl}}/q/health", "host": ["{{auditBaseUrl}}"], "path": ["q", "health"] } }
+        }
+      ]
+    },
+    {
+      "name": "5. Revogar acesso (fim da demo)",
+      "description": "Roda por ultimo, depois de ja ter exercitado as consultas autorizadas na pasta 2 - a partir daqui o MEDICO perde o acesso de leitura/escrita ao paciente novamente.",
+      "item": [
+        {
+          "name": "Revogar acesso do MEDICO (GESTOR)",
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{gestorToken}}" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"professionalId\": \"{{medicoId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{commandBaseUrl}}/patients/{{patientId}}/access-revocations",
+              "host": ["{{commandBaseUrl}}"], "path": ["patients", "{{patientId}}", "access-revocations"]
+            }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": ["pm.test('status 201', () => pm.response.to.have.status(201));"] } }
+          ]
+        }
+      ]
+    }
+  ]
+}
