@@ -49,6 +49,12 @@
             <artifactId>quarkus-smallrye-health</artifactId>
         </dependency>
 
+        <!-- Metricas: /q/metrics no formato Prometheus (issue #12) -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-micrometer-registry-prometheus</artifactId>
+        </dependency>
+
         <!-- Logs JSON estruturados -->
         <dependency>
             <groupId>io.quarkus</groupId>
