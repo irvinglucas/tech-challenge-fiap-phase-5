@@ -65,6 +65,12 @@
             <artifactId>quarkus-flyway</artifactId>
         </dependency>
 
+        <!-- Publicacao dos eventos de dominio no topico patient-record-events -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-messaging-kafka</artifactId>
+        </dependency>
+
         <!-- Testes -->
         <dependency>
             <groupId>io.quarkus</groupId>
