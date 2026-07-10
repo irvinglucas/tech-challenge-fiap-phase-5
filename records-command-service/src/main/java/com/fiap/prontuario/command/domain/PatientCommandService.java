@@ -48,31 +48,31 @@ public class PatientCommandService {
     }
 
     public CommandResult recordConsultation(String patientId, String professionalId, String unitId, String notes) {
-        return applyClinicalCommand(patientId, professionalId, () -> new ConsultationRecorded(
+        return applyClinicalCommand(patientId, professionalId, unitId, () -> new ConsultationRecorded(
                 UUID.randomUUID(), patientId, Instant.now(), professionalId, unitId, notes));
     }
 
     public CommandResult addDiagnosis(String patientId, String professionalId, String unitId,
             String description, String cid10) {
-        return applyClinicalCommand(patientId, professionalId, () -> new DiagnosisAdded(
+        return applyClinicalCommand(patientId, professionalId, unitId, () -> new DiagnosisAdded(
                 UUID.randomUUID(), patientId, Instant.now(), professionalId, unitId, description, cid10));
     }
 
     public CommandResult issuePrescription(String patientId, String professionalId, String unitId,
             String medication, String dosage) {
-        return applyClinicalCommand(patientId, professionalId, () -> new PrescriptionIssued(
+        return applyClinicalCommand(patientId, professionalId, unitId, () -> new PrescriptionIssued(
                 UUID.randomUUID(), patientId, Instant.now(), professionalId, unitId, medication, dosage));
     }
 
     public CommandResult registerAllergy(String patientId, String professionalId, String unitId,
             String substance, String severity) {
-        return applyClinicalCommand(patientId, professionalId, () -> new AllergyRegistered(
+        return applyClinicalCommand(patientId, professionalId, unitId, () -> new AllergyRegistered(
                 UUID.randomUUID(), patientId, Instant.now(), professionalId, unitId, substance, severity));
     }
 
     public CommandResult attachExamResult(String patientId, String professionalId, String unitId,
             String examType, String resultSummary) {
-        return applyClinicalCommand(patientId, professionalId, () -> new ExamResultAttached(
+        return applyClinicalCommand(patientId, professionalId, unitId, () -> new ExamResultAttached(
                 UUID.randomUUID(), patientId, Instant.now(), professionalId, unitId, examType, resultSummary));
     }
 
@@ -96,9 +96,11 @@ public class PatientCommandService {
     }
 
     private CommandResult applyClinicalCommand(
-            String patientId, String professionalId, Supplier<PatientRecordEvent> eventFactory) {
+            String patientId, String professionalId, String unitId,
+            Supplier<PatientRecordEvent> eventFactory) {
         PatientRecord record = requireRegistered(patientId);
         if (!record.isAuthorized(professionalId)) {
+            repository.publishAccessDenied(patientId, professionalId, unitId, "profissional sem acesso concedido");
             throw new UnauthorizedAccessException(patientId, professionalId);
         }
         PatientRecordEvent event = eventFactory.get();

@@ -3,10 +3,14 @@ package com.fiap.prontuario.command.domain;
 import com.fiap.prontuario.command.correlation.CorrelationIdContext;
 import com.fiap.prontuario.command.eventstore.PatientRecordEventPublisher;
 import com.fiap.prontuario.command.eventstore.PatientRecordEventStore;
+import com.fiap.prontuario.common.event.AccessDenied;
 import com.fiap.prontuario.common.event.PatientRecordEvent;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+
+import java.time.Instant;
+import java.util.UUID;
 
 /**
  * Fachada usada pelos comandos (issue #5) para carregar o agregado
@@ -41,5 +45,15 @@ public class PatientRecordRepository {
         int newVersion = eventStore.append(patientId, expectedVersion, event);
         eventPublisher.publish(event, correlationIdContext.get());
         return newVersion;
+    }
+
+    /**
+     * Publica uma tentativa de acesso negada (issue #7). Nao consome versao
+     * do agregado: e um sinal de auditoria, nao uma mutacao de estado (ver
+     * PatientRecord#apply, que trata AccessDenied como no-op).
+     */
+    public void publishAccessDenied(String patientId, String professionalId, String unitId, String reason) {
+        AccessDenied event = new AccessDenied(UUID.randomUUID(), patientId, Instant.now(), professionalId, unitId, reason);
+        eventPublisher.publish(event, correlationIdContext.get());
     }
 }

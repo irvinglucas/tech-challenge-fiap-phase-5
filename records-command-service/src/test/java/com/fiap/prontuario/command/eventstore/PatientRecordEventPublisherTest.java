@@ -38,8 +38,14 @@ class PatientRecordEventPublisherTest {
     void publishes_the_event_with_key_and_headers_after_a_successful_command() {
         String cpf = String.valueOf(System.nanoTime());
         String correlationId = "corr-" + cpf;
+        String token = given().contentType(ContentType.JSON)
+                .body(Map.of("professionalId", "gestor-1", "roles", java.util.Set.of("GESTOR")))
+                .when().post("/dev/tokens")
+                .then().statusCode(200)
+                .extract().path("token");
 
         given().contentType(ContentType.JSON)
+                .auth().oauth2(token)
                 .header("X-Correlation-Id", correlationId)
                 .body(Map.of("fullName", "Joana Souza", "cpf", cpf, "unitId", "unit-1"))
                 .when().post("/patients")
