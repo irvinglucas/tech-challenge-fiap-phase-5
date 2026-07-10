@@ -113,6 +113,11 @@ Em ambiente local/hackathon, `POST /dev/tokens` (no `records-command-service`) e
 - **Tracing distribuído**: OpenTelemetry + [Jaeger](http://localhost:16686), cobrindo chamadas HTTP e consumo Kafka entre os 3 serviços.
 - **Redpanda Console**: `http://localhost:8080` — inspeciona tópicos, mensagens e consumer groups (incluindo a DLQ `patient-record-events-dlq`).
 
+## Materiais de entrega do hackathon
+
+- **Relatório do projeto**: [docs/relatorio-final.md](docs/relatorio-final.md) — cobre todas as seções exigidas pelo PDF do hackathon (resumo executivo, problema, solução, processo de desenvolvimento, detalhes técnicos, links úteis, aprendizados e próximos passos). Falta apenas preencher a equipe e exportar para `.txt`/`.doc` antes de publicar.
+- **Roteiros para os vídeos de pitch e de demo**: [docs/video-scripts.md](docs/video-scripts.md) — a gravação em si é manual, mas o roteiro passo a passo (mapeado para a coleção Postman) já está pronto.
+
 ## Status do projeto
 
 Acompanhe o progresso no [Project "FIAP Tech Challenge 5"](https://github.com/users/irvinglucas/projects/2).
