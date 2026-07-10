@@ -1,15 +1,14 @@
-package com.fiap.prontuario.command.correlation;
+package com.fiap.prontuario.audit.correlation;
 
 import jakarta.enterprise.context.RequestScoped;
 
 import org.jboss.logging.MDC;
 
 /**
- * Carrega o correlation id da requisicao HTTP atual, propagado para os
- * eventos publicados no broker (issue #6) e usado nos logs correlacionados
- * (issue #13): ao ser definido, e colocado no MDC do JBoss Logging, que o
- * quarkus-logging-json inclui automaticamente em todo log JSON emitido
- * durante a requisicao (campo {@code mdc.correlationId}).
+ * Carrega o correlation id da requisicao HTTP atual (endpoints de
+ * auditoria/alertas). Ao ser definido, e colocado no MDC do JBoss Logging,
+ * que o quarkus-logging-json inclui automaticamente em todo log JSON
+ * emitido durante a requisicao (issue #13).
  */
 @RequestScoped
 public class CorrelationIdContext {

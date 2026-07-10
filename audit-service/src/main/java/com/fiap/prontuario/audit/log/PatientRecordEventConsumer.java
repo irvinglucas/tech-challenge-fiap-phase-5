@@ -14,6 +14,7 @@ import org.apache.kafka.common.header.Header;
 import org.eclipse.microprofile.reactive.messaging.Incoming;
 import org.eclipse.microprofile.reactive.messaging.Message;
 import org.jboss.logging.Logger;
+import org.jboss.logging.MDC;
 
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletionStage;
@@ -48,21 +49,29 @@ public class PatientRecordEventConsumer {
         String eventType = headerValue(message, EventHeaders.EVENT_TYPE);
         String correlationId = headerValue(message, EventHeaders.CORRELATION_ID);
 
-        PatientRecordEvent event = codec.fromJson(eventType, message.getPayload());
-        AuditFieldsExtractor.AuditFields fields = AuditFieldsExtractor.extract(event);
+        // Consumidor roda numa thread propria, entao o correlation id
+        // precisa ser colocado no MDC aqui para aparecer nos logs JSON desta
+        // etapa (issue #13).
+        MDC.put("correlationId", correlationId);
+        try {
+            PatientRecordEvent event = codec.fromJson(eventType, message.getPayload());
+            AuditFieldsExtractor.AuditFields fields = AuditFieldsExtractor.extract(event);
 
-        LOG.infof("Registrando na auditoria: evento=%s paciente=%s profissional=%s (correlationId=%s)",
-                eventType, event.patientId(), fields.professionalId(), correlationId);
+            LOG.infof("Registrando na auditoria: evento=%s paciente=%s profissional=%s (correlationId=%s)",
+                    eventType, event.patientId(), fields.professionalId(), correlationId);
 
-        auditLogWriter.append(
-                event.patientId(), eventType, event.occurredAt(),
-                fields.professionalId(), fields.unitId(), fields.detail(), correlationId);
+            auditLogWriter.append(
+                    event.patientId(), eventType, event.occurredAt(),
+                    fields.professionalId(), fields.unitId(), fields.detail(), correlationId);
 
-        if (event instanceof RecordAccessed recordAccessed) {
-            suspiciousAccessDetector.checkAfterAccess(recordAccessed.professionalId(), recordAccessed.occurredAt());
+            if (event instanceof RecordAccessed recordAccessed) {
+                suspiciousAccessDetector.checkAfterAccess(recordAccessed.professionalId(), recordAccessed.occurredAt());
+            }
+
+            return message.ack();
+        } finally {
+            MDC.remove("correlationId");
         }
-
-        return message.ack();
     }
 
     private String headerValue(Message<String> message, String headerName) {

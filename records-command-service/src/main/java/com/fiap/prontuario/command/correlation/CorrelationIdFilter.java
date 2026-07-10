@@ -35,5 +35,6 @@ public class CorrelationIdFilter implements ContainerRequestFilter, ContainerRes
     @Override
     public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) {
         responseContext.getHeaders().putSingle(HEADER_NAME, correlationIdContext.get());
+        correlationIdContext.clear();
     }
 }
