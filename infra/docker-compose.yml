@@ -1,0 +1,149 @@
+name: prontuario-sus
+
+# Infra local do MVP (issue #3): 3 bancos Postgres (um por servico, seguindo
+# o padrao "database per service") e um broker de eventos compativel com
+# Kafka (Redpanda, sem Zookeeper) + console web para inspecionar os topicos
+# durante a demo.
+#
+# Uso:
+#   cd infra
+#   cp .env.example .env   # opcional, so se quiser mudar portas/credenciais
+#   docker compose up -d
+#
+# Veja infra/README.md para mais detalhes.
+
+networks:
+  prontuario-net:
+    driver: bridge
+
+volumes:
+  postgres-command-data:
+  postgres-query-data:
+  postgres-audit-data:
+  redpanda-data:
+
+services:
+  # --- Event store do records-command-service --------------------------------
+  postgres-command:
+    image: postgres:16-alpine
+    container_name: prontuario-postgres-command
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_COMMAND_DB:-records_command}
+      POSTGRES_USER: ${POSTGRES_COMMAND_USER:-command_service}
+      POSTGRES_PASSWORD: ${POSTGRES_COMMAND_PASSWORD:-command_service}
+    ports:
+      - "${POSTGRES_COMMAND_PORT:-5432}:5432"
+    volumes:
+      - postgres-command-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_COMMAND_USER:-command_service} -d ${POSTGRES_COMMAND_DB:-records_command}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - prontuario-net
+
+  # --- Read models do records-query-service -----------------------------------
+  postgres-query:
+    image: postgres:16-alpine
+    container_name: prontuario-postgres-query
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_QUERY_DB:-records_query}
+      POSTGRES_USER: ${POSTGRES_QUERY_USER:-query_service}
+      POSTGRES_PASSWORD: ${POSTGRES_QUERY_PASSWORD:-query_service}
+    ports:
+      - "${POSTGRES_QUERY_PORT:-5433}:5432"
+    volumes:
+      - postgres-query-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_QUERY_USER:-query_service} -d ${POSTGRES_QUERY_DB:-records_query}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - prontuario-net
+
+  # --- Trilha de auditoria do audit-service ------------------------------------
+  postgres-audit:
+    image: postgres:16-alpine
+    container_name: prontuario-postgres-audit
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_AUDIT_DB:-audit}
+      POSTGRES_USER: ${POSTGRES_AUDIT_USER:-audit_service}
+      POSTGRES_PASSWORD: ${POSTGRES_AUDIT_PASSWORD:-audit_service}
+    ports:
+      - "${POSTGRES_AUDIT_PORT:-5434}:5432"
+    volumes:
+      - postgres-audit-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_AUDIT_USER:-audit_service} -d ${POSTGRES_AUDIT_DB:-audit}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - prontuario-net
+
+  # --- Broker de eventos (topico patient-record-events e sua DLQ) -------------
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v26.1.12
+    container_name: prontuario-redpanda
+    restart: unless-stopped
+    command:
+      - redpanda
+      - start
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://redpanda:9092,external://localhost:${REDPANDA_KAFKA_PORT:-19092}
+      - --pandaproxy-addr internal://0.0.0.0:8082,external://0.0.0.0:18082
+      - --advertise-pandaproxy-addr internal://redpanda:8082,external://localhost:${REDPANDA_PANDAPROXY_PORT:-18082}
+      - --schema-registry-addr internal://0.0.0.0:8081,external://0.0.0.0:18081
+      - --advertise-schema-registry-addr internal://redpanda:8081,external://localhost:${REDPANDA_SCHEMA_REGISTRY_PORT:-18081}
+      - --rpc-addr redpanda:33145
+      - --advertise-rpc-addr redpanda:33145
+      - --mode dev-container
+      - --smp 1
+      - --default-log-level=info
+    ports:
+      - "${REDPANDA_KAFKA_PORT:-19092}:19092"
+      - "${REDPANDA_SCHEMA_REGISTRY_PORT:-18081}:18081"
+      - "${REDPANDA_PANDAPROXY_PORT:-18082}:18082"
+      - "${REDPANDA_ADMIN_PORT:-19644}:9644"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    networks:
+      - prontuario-net
+
+  # --- UI web para inspecionar topicos/mensagens durante a demo ---------------
+  redpanda-console:
+    image: docker.redpanda.com/redpandadata/console:v3.8.0
+    container_name: prontuario-redpanda-console
+    restart: unless-stopped
+    entrypoint: /bin/sh
+    command: -c 'echo "$$CONSOLE_CONFIG_FILE" > /tmp/config.yml; /app/console'
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["redpanda:9092"]
+        schemaRegistry:
+          enabled: true
+          urls: ["http://redpanda:8081"]
+        redpanda:
+          adminApi:
+            enabled: true
+            urls: ["http://redpanda:9644"]
+    ports:
+      - "${REDPANDA_CONSOLE_PORT:-8080}:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    networks:
+      - prontuario-net

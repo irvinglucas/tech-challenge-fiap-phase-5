@@ -24,6 +24,17 @@ Cada serviço é uma aplicação [Quarkus](https://quarkus.io/) independente (Ja
 | records-query-service | 8082 |
 | audit-service | 8083 |
 
+## Infra local
+
+3 bancos Postgres (um por serviço) + broker de eventos compatível com Kafka (Redpanda):
+
+```bash
+cd infra
+docker compose up -d
+```
+
+Detalhes, portas e credenciais em [infra/README.md](infra/README.md).
+
 ## Build
 
 ```bash
