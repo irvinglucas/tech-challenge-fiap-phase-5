@@ -56,6 +56,13 @@
             <artifactId>quarkus-opentelemetry</artifactId>
         </dependency>
 
+        <!-- Resiliencia no consumo de eventos: retry + circuit breaker antes
+             de mandar para a DLQ (issue #14). -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-fault-tolerance</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-logging-json</artifactId>
