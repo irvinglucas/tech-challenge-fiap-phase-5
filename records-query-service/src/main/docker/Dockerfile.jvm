@@ -1,0 +1,28 @@
+####
+# Imagem JVM do records-query-service, usada apenas para a demo de
+# escalabilidade horizontal (issue #15): permite rodar N replicas stateless
+# do servico via `docker compose up --scale records-query-service=N`.
+#
+# Build (a partir da raiz do modulo records-query-service, depois de
+# `./mvnw -pl records-query-service -am package -DskipTests`):
+#
+#   docker build -f src/main/docker/Dockerfile.jvm -t records-query-service .
+####
+FROM eclipse-temurin:21-jre-alpine
+
+WORKDIR /work/
+
+RUN mkdir -p /work \
+    && chown 1001 /work \
+    && chmod "g+rwX" /work \
+    && chown 1001:root /work
+
+COPY --chown=1001:root target/quarkus-app/lib/ /work/lib/
+COPY --chown=1001:root target/quarkus-app/*.jar /work/
+COPY --chown=1001:root target/quarkus-app/app/ /work/app/
+COPY --chown=1001:root target/quarkus-app/quarkus/ /work/quarkus/
+
+EXPOSE 8082
+USER 1001
+
+ENTRYPOINT ["java", "-jar", "/work/quarkus-run.jar"]

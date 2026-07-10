@@ -111,7 +111,7 @@ Os 3 serviços **nunca se chamam diretamente via HTTP** — toda comunicação e
 | **Observabilidade** | Métricas Prometheus (`/q/metrics`) e health checks (`/q/health`) nos 3 serviços; logs estruturados em JSON com `correlationId` propagado via HTTP e headers Kafka; tracing distribuído via OpenTelemetry + Jaeger, cobrindo requisições HTTP e consumo Kafka |
 | **Resiliência** | Retry + circuit breaker (SmallRye Fault Tolerance) nos consumidores Kafka; eventos que continuam falhando vão para uma DLQ dedicada em vez de travar o tópico |
 | **Consistência eventual** | Aceita entre a escrita (`records-command-service`) e as projeções de leitura/auditoria — inerente ao CQRS + Event Sourcing; a UI (ou cliente) deve tolerar um pequeno delay entre um comando e sua reflexão nas consultas |
-| **Escalabilidade horizontal** | Serviços *stateless* (todo estado vive no Postgres/Kafka) — podem ser escalados horizontalmente via `docker compose up --scale <servico>=N`; consumidores Kafka dividem partições entre réplicas do mesmo consumer group (ver [issue #15](https://github.com/irvinglucas/tech-challenge-fiap-phase-5/issues/15)) |
+| **Escalabilidade horizontal** | Serviços *stateless* (todo estado vive no Postgres/Kafka) — podem ser escalados horizontalmente via `docker compose up --scale <servico>=N`; consumidores Kafka dividem partições entre réplicas do mesmo consumer group, e as redistribuem automaticamente se uma réplica cair. Demonstrado e documentado com evidência real em [docs/scalability-demo.md](scalability-demo.md) |
 
 ## Stack técnica
 

@@ -143,6 +143,32 @@ services:
     networks:
       - prontuario-net
 
+  # --- Demo de escalabilidade horizontal (issue #15) --------------------------
+  # Nao roda com "docker compose up -d" (usa o profile "scale-demo"), so com
+  # `docker compose --profile scale-demo up -d --scale records-query-service=3`
+  # (ver scripts/scale-demo.sh). Sem mapeamento de porta de proposito: o
+  # objetivo aqui e provar que o consumo Kafka se divide entre as replicas
+  # (nenhum estado local, tudo em Postgres/Kafka), nao expor um load balancer
+  # HTTP.
+  records-query-service:
+    build:
+      context: ../records-query-service
+      dockerfile: src/main/docker/Dockerfile.jvm
+    profiles: ["scale-demo"]
+    environment:
+      POSTGRES_QUERY_HOST: postgres-query
+      POSTGRES_QUERY_PORT: "5432"
+      REDPANDA_KAFKA_HOST: redpanda
+      REDPANDA_KAFKA_PORT: "9092"
+      JAEGER_HOST: jaeger
+    depends_on:
+      postgres-query:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+    networks:
+      - prontuario-net
+
   # --- UI web para inspecionar topicos/mensagens durante a demo ---------------
   redpanda-console:
     image: docker.redpanda.com/redpandadata/console:v3.8.0
