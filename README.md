@@ -15,7 +15,7 @@ tech-challenge-fiap-phase-5/
   records-query-service/      # read side (CQRS): projecoes de leitura
   audit-service/              # trilha de auditoria e governanca
   infra/                      # docker-compose com Postgres x3, Redpanda e Jaeger
-  scripts/                    # teste de integracao ponta a ponta e seed de dados
+  scripts/                    # start/stop local, integracao e2e, seed e demo de escala
   docs/
     event-storming.md         # eventos, comandos, politicas e diagramas do dominio
     architecture.md            # arquitetura, diagrama de componentes e atributos de qualidade
@@ -34,6 +34,40 @@ Mais detalhes de cada serviço e do fluxo de eventos entre eles em [docs/archite
 
 ## Quickstart
 
+Forma mais simples de subir o projeto local (infra + 3 serviços):
+
+```bash
+./scripts/start.sh
+```
+
+O script:
+
+1. Sobe a infra com `docker compose` (`infra/`: Postgres ×3, Redpanda, Jaeger).
+2. Empacota os módulos se ainda não houver jar (`./mvnw package -DskipTests`; use `--rebuild` para forçar).
+3. Inicia os 3 serviços Quarkus em background (portas 8081/8082/8083).
+4. Espera cada um responder `GET /q/health/ready` e imprime as URLs úteis.
+
+Opções:
+
+```bash
+./scripts/start.sh --rebuild       # recompila antes de subir
+./scripts/start.sh --seed          # sobe e popula dados de exemplo
+./scripts/start.sh --rebuild --seed
+```
+
+Para encerrar:
+
+```bash
+./scripts/stop.sh          # para só os 3 serviços (mantém a infra Docker)
+./scripts/stop.sh --infra  # para os serviços e derruba o docker compose
+```
+
+Logs dos serviços ficam em `.run/logs/`.
+
+Com tudo no ar, importe a [coleção Postman](docs/postman) (`prontuario-sus.postman_collection.json` + `prontuario-sus.postman_environment.json`) ou abra o Swagger UI (`http://localhost:8081/q/swagger-ui`, troque a porta).
+
+### Alternativa manual (3 terminais)
+
 ```bash
 # 1. Sobe a infra local (Postgres x3, Redpanda, Jaeger)
 cd infra && docker compose up -d && cd ..
@@ -49,8 +83,6 @@ cd infra && docker compose up -d && cd ..
 # 4. (opcional) Popula dados de exemplo para explorar/demonstrar
 ./scripts/seed.sh
 ```
-
-Com os 3 serviços de pé, explore via Swagger UI (`http://localhost:8081/q/swagger-ui`, troque a porta) ou importe a [coleção Postman](docs/postman).
 
 ## Infra local
 
@@ -86,10 +118,11 @@ Endpoints disponíveis em cada serviço (troque a porta conforme a tabela acima)
 
 ## Testes e demo
 
+- **Subir o projeto local**: `./scripts/start.sh` (infra + 3 serviços). Encerrar com `./scripts/stop.sh` (ou `./scripts/stop.sh --infra`).
 - **Testes automatizados de cada serviço**: `./mvnw clean install` (unitários + integração com Quarkus Dev Services, um Postgres/Kafka efêmero por execução).
 - **Teste de integração ponta a ponta dos 3 serviços**: com a infra local e os 3 serviços buildados (`./mvnw clean package -DskipTests`), rode `./scripts/integration-test.sh`. Ele sobe os 3 serviços de verdade e reproduz o fluxo principal via HTTP (registrar paciente → negar acesso → conceder acesso → registrar evolução clínica → consultar prontuário consolidado → consultar auditoria).
-- **Coleção Postman**: [docs/postman/prontuario-sus.postman_collection.json](docs/postman/prontuario-sus.postman_collection.json) + [ambiente local](docs/postman/prontuario-sus.postman_environment.json), cobrindo os endpoints dos 3 serviços na ordem do fluxo principal. Importe os dois arquivos no Postman (ou rode com `npx newman run docs/postman/prontuario-sus.postman_collection.json -e docs/postman/prontuario-sus.postman_environment.json`) com os 3 serviços de pé.
-- **Seed de dados para demo/vídeo**: `./scripts/seed.sh` cria pacientes de exemplo em unidades diferentes, demonstra um acesso negado e gera um alerta de acesso anômalo (mesmo profissional acessando pacientes de 3 unidades em poucos segundos), imprimindo os IDs e tokens gerados para uso manual.
+- **Coleção Postman**: [docs/postman/prontuario-sus.postman_collection.json](docs/postman/prontuario-sus.postman_collection.json) + [ambiente local](docs/postman/prontuario-sus.postman_environment.json), cobrindo os endpoints dos 3 serviços na ordem do fluxo principal. Importe os dois arquivos no Postman (ou rode com `npx newman run docs/postman/prontuario-sus.postman_collection.json -e docs/postman/prontuario-sus.postman_environment.json`) com os 3 serviços de pé (`./scripts/start.sh`).
+- **Seed de dados para demo/vídeo**: `./scripts/seed.sh` (ou `./scripts/start.sh --seed`) cria pacientes de exemplo em unidades diferentes, demonstra um acesso negado e gera um alerta de acesso anômalo (mesmo profissional acessando pacientes de 3 unidades em poucos segundos), imprimindo os IDs e tokens gerados para uso manual.
 - **Escalabilidade horizontal**: `./scripts/scale-demo.sh 3` builda e sobe 3 réplicas stateless do `records-query-service`, provando que o Kafka divide as partições do tópico entre elas e as redistribui automaticamente se uma réplica cair. Evidência completa em [docs/scalability-demo.md](docs/scalability-demo.md).
 
 ## Segurança e papéis (RBAC)

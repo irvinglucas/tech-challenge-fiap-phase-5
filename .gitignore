@@ -20,3 +20,6 @@ target/
 
 # Logs
 *.log
+
+# Runtime local (PIDs/logs do scripts/start.sh)
+.run/
